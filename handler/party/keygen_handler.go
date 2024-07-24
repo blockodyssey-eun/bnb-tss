@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 
 	"tss_project/internal/tss/keygen"
 	"tss_project/proto"
@@ -20,17 +21,26 @@ func (h *KeygenHandler) InitiateKeygen(ctx context.Context, req *proto.KeygenReq
 	log.Printf("Received keygen request: threshold=%d, total_parties=%d", req.Threshold, req.TotalParties)
 
 	// Create PartyID for this party
-	partyID := tss.NewPartyID(req.PartyId, fmt.Sprintf("Party-%s", req.PartyId), nil)
+	partyIndex, ok := new(big.Int).SetString(req.PartyId, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid PartyId: %s", req.PartyId)
+	}
+	partyID := tss.NewPartyID(req.PartyId, fmt.Sprintf("Party-%s", req.PartyId), partyIndex)
 
-	// Create SortedPartyIDs
-	var parties tss.SortedPartyIDs
-	for _, p := range req.Parties {
-		party := tss.NewPartyID(p.Id, p.Moniker, nil)
+	// Create UnSortedPartyIDs
+	var parties tss.UnSortedPartyIDs
+	for i, p := range req.Parties {
+		index := big.NewInt(int64(i))
+		party := tss.NewPartyID(p.Id, p.Moniker, index)
 		parties = append(parties, party)
 	}
 
+	// Sort the parties
+	sortedParties := tss.SortPartyIDs(parties)
+
+	fmt.Println("sortedParties: ", sortedParties)
 	// Create KeygenManager
-	km := keygen.NewKeygenManager(int(req.Threshold), int(req.TotalParties), partyID, parties)
+	km := keygen.NewKeygenManager(int(req.Threshold), int(req.TotalParties), partyID, sortedParties)
 
 	// Start keygen process
 	publicKey, err := km.StartKeygen(ctx)

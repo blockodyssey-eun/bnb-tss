@@ -132,3 +132,54 @@ docker run -d --name tss-gateway --network tss-network -p 8080:8080 tss-gateway:
 docker run -d --name tss-party-1 --network tss-network -p 9091:9090 tss-party:latest
 docker run -d --name tss-party-2 --network tss-network -p 9092:9090 tss-party:latest
 docker run -d --name tss-party-3 --network tss-network -p 9093:9090 tss-party:latest
+
+
+# 테스트 
+curl -X POST http://localhost:8080/keygen \
+-H "Content-Type: application/json" \
+-d '{
+  "threshold": 2,
+  "total_parties": 3
+}'
+
+
+#### 쿠버네티스 명령어
+
+1. POD 삭제
+```bash
+kubectl delete pod <pod-name>
+# 강제 
+--grace-period=0 --force
+```
+
+
+
+# Troubleshooting
+
+Failed to create party pods: failed to create deployment: deployments.apps is forbidden: User "system:serviceaccount:default:default" cannot create resource "deployments" in API group "apps" in the namespace "default"
+
+
+1. 적절한 권한을 가진 ClusterRole을 생성합니다:
+```bash
+kubectl create clusterrole deployment-manager --verb=create,delete,get,list,update,watch --resource=deployments
+// clusterrole.rbac.authorization.k8s.io/deployment-manager created
+```
+
+
+2.  ClusterRole을 default 서비스 계정에 바인딩합니다:
+```bash
+kubectl create clusterrolebinding deployment-manager-binding --clusterrole=deployment-manager --serviceaccount=default:default
+//clusterrolebinding.rbac.authorization.k8s.io/deployment-manager-binding created
+```
+
+
+
+Failed to create party pods: failed to mark pod as in use: pods "tss-party-5fb595b4f7-g2ffz" is forbidden: User "system:serviceaccount:default:default" cannot update resource "pods" in API group "" in the namespace "default"
+
+1. 이미 권한이 존재하는 경우 삭제 후 재생성
+```bash
+kubectl delete clusterrolebinding pod-manager-binding
+kubectl delete clusterrole pod-manager
+kubectl create clusterrole pod-manager --verb=get,list,watch,update --resource=pods
+kubectl create clusterrolebinding pod-manager-binding --clusterrole=pod-manager --serviceaccount=default:default
+```

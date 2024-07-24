@@ -27,6 +27,12 @@ eval $(minikube -p minukube docker-env)
 docker build -t tss-gateway:latest -f Dockerfile.gateway .
 docker build -t tss-party:latest -f Dockerfile.party .
 
+# 권한
+kubectl delete clusterrolebinding pod-manager-binding
+kubectl delete clusterrole pod-manager
+kubectl create clusterrole pod-manager --verb=get,list,watch,update --resource=pods
+kubectl create clusterrolebinding pod-manager-binding --clusterrole=pod-manager --serviceaccount=default:default
+
 # 리소스 재배포
 kubectl apply -f kubernetes/gateway-deployment.yaml
 kubectl apply -f kubernetes/gateway-service.yaml
@@ -37,3 +43,10 @@ kubectl apply -f kubernetes/party-service.yaml
 # 배포 상태 확인
 kubectl get pods
 kubectl get services
+
+
+# 잠시 대기 (Pod이 완전히 시작하기를 기다림)
+sleep 10
+
+kubectl port-forward service/tss-gateway-service 8080:80
+

@@ -29,6 +29,9 @@ func NewKeygenManager(threshold, totalParties int, partyID *tss.PartyID, parties
 
 // StartKeygen starts the key generation process
 func (km *KeygenManager) StartKeygen(ctx context.Context) (*big.Int, error) {
+	if km.PartyID == nil {
+		return nil, fmt.Errorf("invalid PartyID: PartyID is nil")
+	}
 	peerCtx := tss.NewPeerContext(km.Parties)
 	params := tss.NewParameters(tss.S256(), peerCtx, km.PartyID, km.TotalParties, km.Threshold)
 
