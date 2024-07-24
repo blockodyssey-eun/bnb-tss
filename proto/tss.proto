@@ -6,11 +6,12 @@ option go_package = "tss_project/proto";
 
 import "google/protobuf/any.proto";
 
+// TSS 서비스 정의
 service TSSService {
-  // Gateway -> Party: 키 생성 시작
+  // Gateway -> Party: 키 생성 요청
   rpc InitiateKeygen(KeygenRequest) returns (KeygenResponse) {}
   
-  // Gateway -> Party: 서명 시작
+  // Gateway -> Party: 서명 요청
   rpc InitiateSign(SignRequest) returns (SignResponse) {}
   
   // Party <-> Party: 메시지 교환
@@ -21,7 +22,8 @@ service TSSService {
 message KeygenRequest {
   int32 threshold = 1;
   int32 total_parties = 2;
-  string session_id = 3;
+  string party_id = 3;
+  repeated PartyID parties = 4;
 }
 
 // 키 생성 응답
@@ -35,7 +37,10 @@ message KeygenResponse {
 message SignRequest {
   bytes message_to_sign = 1;
   string session_id = 2;
+  string party_id = 3;
+  repeated PartyID parties = 4;
 }
+
 
 // 서명 응답
 message SignResponse {

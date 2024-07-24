@@ -1,4 +1,4 @@
-<!-- tss_project/
+tss_project/
 ├── cmd/
 │   ├── gateway/
 │   │   └── main.go
@@ -113,4 +113,22 @@ go.sum: Go 모듈 의존성 관리 파일
     문서화
         프로젝트의 README.md 파일을 작성하여 프로젝트 개요, 설치 방법, 사용 방법 등을 문서화합니다.
     배포
-        최종적으로 시스템을 프로덕션 환경에 배포합니다. -->
+        최종적으로 시스템을 프로덕션 환경에 배포합니다.
+
+
+# Gateway 이미지 빌드
+docker build -t tss-gateway:latest -f Dockerfile.gateway .
+
+# Party 이미지 빌드
+docker build -t tss-party:latest -f Dockerfile.party .
+
+# Docker 네트워크 생성
+docker network create tss-network
+
+# Gateway 서버 실행
+docker run -d --name tss-gateway --network tss-network -p 8080:8080 tss-gateway:latest
+
+# Party 서버 실행 (3개의 파티 서버)
+docker run -d --name tss-party-1 --network tss-network -p 9091:9090 tss-party:latest
+docker run -d --name tss-party-2 --network tss-network -p 9092:9090 tss-party:latest
+docker run -d --name tss-party-3 --network tss-network -p 9093:9090 tss-party:latest

@@ -1,41 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tss-party
+  name: tss-gateway
   labels:
-    app: tss-party
+    app: tss-gateway
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
-      app: tss-party
+      app: tss-gateway
   template:
     metadata:
       labels:
-        app: tss-party
+        app: tss-gateway
     spec:
       containers:
-      - name: tss-party
-        image: tss-party:latest
-        imagePullPolicy: IfNotPresent
+      - name: tss-gateway
+        image: tss-gateway:latest
+        imagePullPolicy: Never
         ports:
-        - containerPort: 9090
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - containerPort: 8080
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 9090
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 9090
+            port: 8080
           initialDelaySeconds: 15
           periodSeconds: 20

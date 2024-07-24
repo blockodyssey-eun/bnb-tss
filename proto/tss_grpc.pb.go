@@ -27,10 +27,12 @@ const (
 // TSSServiceClient is the client API for TSSService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// TSS 서비스 정의
 type TSSServiceClient interface {
-	// Gateway -> Party: 키 생성 시작
+	// Gateway -> Party: 키 생성 요청
 	InitiateKeygen(ctx context.Context, in *KeygenRequest, opts ...grpc.CallOption) (*KeygenResponse, error)
-	// Gateway -> Party: 서명 시작
+	// Gateway -> Party: 서명 요청
 	InitiateSign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error)
 	// Party <-> Party: 메시지 교환
 	ExchangeMessage(ctx context.Context, in *MessageWrapper, opts ...grpc.CallOption) (*MessageWrapper, error)
@@ -77,10 +79,12 @@ func (c *tSSServiceClient) ExchangeMessage(ctx context.Context, in *MessageWrapp
 // TSSServiceServer is the server API for TSSService service.
 // All implementations must embed UnimplementedTSSServiceServer
 // for forward compatibility
+//
+// TSS 서비스 정의
 type TSSServiceServer interface {
-	// Gateway -> Party: 키 생성 시작
+	// Gateway -> Party: 키 생성 요청
 	InitiateKeygen(context.Context, *KeygenRequest) (*KeygenResponse, error)
-	// Gateway -> Party: 서명 시작
+	// Gateway -> Party: 서명 요청
 	InitiateSign(context.Context, *SignRequest) (*SignResponse, error)
 	// Party <-> Party: 메시지 교환
 	ExchangeMessage(context.Context, *MessageWrapper) (*MessageWrapper, error)
