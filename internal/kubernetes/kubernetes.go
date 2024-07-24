@@ -3,14 +3,18 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
 
 	"path/filepath"
 
+	"github.com/bnb-chain/tss-lib/tss"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,9 +29,33 @@ const (
 )
 
 type PartyPod struct {
-	ID   string
-	Name string
-	IP   string
+	ID    string
+	Name  string
+	IP    string
+	Party *party
+}
+
+type party struct {
+	id        *tss.PartyID
+	params    *tss.Parameters
+	out       chan tss.Message
+	in        chan tss.Message
+	shareData []byte
+	sendMsg   Sender
+	logger    *zap.SugaredLogger
+	closeChan chan struct{}
+}
+
+type Sender func(msg []byte, isBroadcast bool, to uint16)
+
+func NewParty(id uint16, logger *zap.SugaredLogger) *party {
+	return &party{
+		id:        tss.NewPartyID(fmt.Sprintf("%d", id), "", big.NewInt(int64(id))),
+		out:       make(chan tss.Message, 1000),
+		in:        make(chan tss.Message, 1000),
+		logger:    logger,
+		closeChan: make(chan struct{}),
+	}
 }
 
 var (
@@ -75,15 +103,13 @@ func initPodPool() {
 
 	for i := 0; i < poolSize; i++ {
 		podName := fmt.Sprintf("tss-party-pool-%d", i)
-		deployment := createPartyDeployment(podName)
-
-		result, err := clientset.AppsV1().Deployments("default").Create(context.TODO(), deployment, metav1.CreateOptions{})
+		deployment, err := createOrUpdatePartyDeployment(clientset, podName)
 		if err != nil {
-			fmt.Printf("Failed to create deployment: %v\n", err)
+			fmt.Printf("Failed to create or update deployment: %v\n", err)
 			continue
 		}
 
-		pod, err := waitForPod(clientset, result.Name)
+		pod, err := waitForPod(clientset, deployment.Name)
 		if err != nil {
 			fmt.Printf("Failed to wait for pod: %v\n", err)
 			continue
@@ -91,6 +117,73 @@ func initPodPool() {
 
 		podPool <- pod
 	}
+}
+
+// createOrUpdatePartyDeployment creates or updates a deployment for a party pod
+func createOrUpdatePartyDeployment(clientset *kubernetes.Clientset, podName string) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": podName,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": podName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            podName,
+							Image:           "tss-party:latest",
+							ImagePullPolicy: corev1.PullNever,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 9090,
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("500m"),
+									corev1.ResourceMemory: resource.MustParse("512Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := clientset.AppsV1().Deployments("default").Create(context.TODO(), deployment, metav1.CreateOptions{})
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			existingDeployment, getErr := clientset.AppsV1().Deployments("default").Get(context.TODO(), podName, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, fmt.Errorf("failed to get existing deployment: %v", getErr)
+			}
+			existingDeployment.Spec = deployment.Spec
+			result, err = clientset.AppsV1().Deployments("default").Update(context.TODO(), existingDeployment, metav1.UpdateOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to update existing deployment: %v", err)
+			}
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to create deployment: %v", err)
+	}
+	return result, nil
 }
 
 // findAvailablePod finds an available pod from the pool
@@ -178,54 +271,6 @@ func DeletePartyPods(partyPods []PartyPod) error {
 	}
 
 	return nil
-}
-
-// createPartyDeployment creates a deployment for a party pod
-func createPartyDeployment(podName string) *appsv1.Deployment {
-	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: "default",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(1),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": podName,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app": podName,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  podName,
-							Image: "tss-party:latest",
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 9090,
-								},
-							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("500m"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func int32Ptr(i int32) *int32 { return &i }

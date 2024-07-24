@@ -50,12 +50,11 @@ func KeygenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// KeygenManager 생성
 	km := keygen.NewKeygenManager(req.Threshold, req.TotalParties, localPartyID, parties)
-	fmt.Println("km:", km)
+	fmt.Println("km:", parties)
 
 	// 키 생성 프로세스 시작
 	ctx := context.Background()
 	publicKey, err := km.StartKeygen(ctx)
-	fmt.Println("publicKey:", publicKey)
 
 	// Kubernetes 리소스 정리
 	cleanupResources(partyPods)

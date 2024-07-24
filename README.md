@@ -183,3 +183,46 @@ kubectl delete clusterrole pod-manager
 kubectl create clusterrole pod-manager --verb=get,list,watch,update --resource=pods
 kubectl create clusterrolebinding pod-manager-binding --clusterrole=pod-manager --serviceaccount=default:default
 ```
+
+
+
+### 
+
+네, 모든 pods를 삭제하겠습니다. 다음 명령어를 사용하여 모든 pods를 삭제할 수 있습니다:
+
+```bash
+kubectl delete pods --all
+```
+
+하지만 Deployment나 ReplicaSet에 의해 관리되는 pods는 삭제 후 자동으로 다시 생성될 수 있습니다. 따라서 모든 리소스를 완전히 제거하려면 다음 명령어들을 순서대로 실행하는 것이 좋습니다:
+
+1. Deployments 삭제:
+```bash
+kubectl delete deployments --all
+```
+
+2. ReplicaSets 삭제:
+```bash
+kubectl delete replicasets --all
+```
+
+3. Services 삭제:
+```bash
+kubectl delete services --all
+```
+
+4. Pods 삭제:
+```bash
+kubectl delete pods --all
+```
+
+5. HorizontalPodAutoscalers 삭제:
+```bash
+kubectl delete hpa --all
+```
+
+이렇게 하면 모든 관련 리소스가 삭제되고, 새로운 상태에서 다시 시작할 수 있습니다. 삭제 후에는 다음 명령어로 모든 리소스가 제거되었는지 확인할 수 있습니다:
+
+```bash
+kubectl get all
+```

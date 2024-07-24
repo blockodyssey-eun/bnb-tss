@@ -1,56 +1,67 @@
 package keygen
 
 import (
-	"context"
 	"fmt"
-	"math/big"
+	"sync"
 
 	"github.com/bnb-chain/tss-lib/ecdsa/keygen"
 	"github.com/bnb-chain/tss-lib/tss"
+	"go.uber.org/zap"
 )
 
-// KeygenManager handles the key generation process
-type KeygenManager struct {
-	Threshold    int
-	TotalParties int
-	PartyID      *tss.PartyID
-	Parties      tss.SortedPartyIDs
+type Party struct {
+	params    *tss.Parameters
+	id        string
+	out       chan tss.Message
+	end       chan keygen.LocalPartySaveData
+	party     *keygen.LocalParty
+	logger    *zap.SugaredLogger
+	publicKey string
+	mu        sync.Mutex
 }
 
-// NewKeygenManager creates a new KeygenManager
-func NewKeygenManager(threshold, totalParties int, partyID *tss.PartyID, parties tss.SortedPartyIDs) *KeygenManager {
-	return &KeygenManager{
-		Threshold:    threshold,
-		TotalParties: totalParties,
-		PartyID:      partyID,
-		Parties:      parties,
+func NewParty(params *tss.Parameters, id string, logger *zap.SugaredLogger) *Party {
+	out := make(chan tss.Message, 1000)
+	end := make(chan keygen.LocalPartySaveData, 1)
+	return &Party{
+		params: params,
+		id:     id,
+		out:    out,
+		end:    end,
+		logger: logger,
 	}
 }
 
-// StartKeygen starts the key generation process
-func (km *KeygenManager) StartKeygen(ctx context.Context) (*big.Int, error) {
-	if km.PartyID == nil {
-		return nil, fmt.Errorf("invalid PartyID: PartyID is nil")
-	}
-	peerCtx := tss.NewPeerContext(km.Parties)
-	params := tss.NewParameters(tss.S256(), peerCtx, km.PartyID, km.TotalParties, km.Threshold)
+func (p *Party) Start() error {
+	p.party = keygen.NewLocalParty(p.params, p.out, p.end)
+	go p.handleOutgoingMessages()
 
-	outCh := make(chan tss.Message, km.TotalParties)
-	endCh := make(chan keygen.LocalPartySaveData, 1)
-
-	party := keygen.NewLocalParty(params, outCh, endCh)
-
-	// Start the key generation process
-	err := party.Start()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start key generation: %v", err)
+	if err := p.party.Start(); err != nil {
+		return fmt.Errorf("failed to start party: %v", err)
 	}
 
-	// Wait for the key generation process to complete
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case data := <-endCh:
-		return data.ECDSAPub.X(), nil
+	saveData := <-p.end
+	p.mu.Lock()
+	p.publicKey = saveData.ECDSAPub.X().String() + saveData.ECDSAPub.Y().String()
+	p.mu.Unlock()
+
+	return nil
+}
+
+func (p *Party) handleOutgoingMessages() {
+	for msg := range p.out {
+		// Here, implement the logic to send the message to other parties
+		// This could involve using Kubernetes API or your preferred communication method
+		p.logger.Infof("Party %s sending message to %v", p.id, msg.GetTo())
 	}
+}
+
+func (p *Party) GetPublicKey() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.publicKey
+}
+
+func (p *Party) UpdateFromBytes(wireBytes []byte, from *tss.PartyID, isBroadcast bool) (bool, error) {
+	return p.party.UpdateFromBytes(wireBytes, from, isBroadcast)
 }
