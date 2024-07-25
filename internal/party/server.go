@@ -12,17 +12,14 @@ import (
 type TSSService struct {
 	proto.UnimplementedTSSServiceServer
 	keygenHandler *party.KeygenHandler
-	signHandler   *party.SignHandler
 }
 
 func NewServer() *grpc.Server {
 	grpcServer := grpc.NewServer()
 
 	keygenHandler := &party.KeygenHandler{}
-	signHandler := &party.SignHandler{}
 	tssService := &TSSService{
 		keygenHandler: keygenHandler,
-		signHandler:   signHandler,
 	}
 	proto.RegisterTSSServiceServer(grpcServer, tssService)
 

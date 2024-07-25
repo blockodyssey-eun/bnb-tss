@@ -10,7 +10,6 @@ import (
 func NewServer() *http.Server {
 	r := mux.NewRouter()
 	r.HandleFunc("/keygen", gateway.KeygenHandler).Methods("POST")
-	r.HandleFunc("/sign", gateway.SignHandler).Methods("POST")
 
 	return &http.Server{
 		Addr:    ":8080",

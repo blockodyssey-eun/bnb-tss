@@ -20,7 +20,6 @@ const _ = grpc.SupportPackageIsVersion8
 
 const (
 	TSSService_InitiateKeygen_FullMethodName  = "/tss.TSSService/InitiateKeygen"
-	TSSService_InitiateSign_FullMethodName    = "/tss.TSSService/InitiateSign"
 	TSSService_ExchangeMessage_FullMethodName = "/tss.TSSService/ExchangeMessage"
 )
 
@@ -32,10 +31,8 @@ const (
 type TSSServiceClient interface {
 	// Gateway -> Party: 키 생성 요청
 	InitiateKeygen(ctx context.Context, in *KeygenRequest, opts ...grpc.CallOption) (*KeygenResponse, error)
-	// Gateway -> Party: 서명 요청
-	InitiateSign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error)
 	// Party <-> Party: 메시지 교환
-	ExchangeMessage(ctx context.Context, in *MessageWrapper, opts ...grpc.CallOption) (*MessageWrapper, error)
+	ExchangeMessage(ctx context.Context, in *MessageWrapper, opts ...grpc.CallOption) (*MessageResponse, error)
 }
 
 type tSSServiceClient struct {
@@ -56,19 +53,9 @@ func (c *tSSServiceClient) InitiateKeygen(ctx context.Context, in *KeygenRequest
 	return out, nil
 }
 
-func (c *tSSServiceClient) InitiateSign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error) {
+func (c *tSSServiceClient) ExchangeMessage(ctx context.Context, in *MessageWrapper, opts ...grpc.CallOption) (*MessageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SignResponse)
-	err := c.cc.Invoke(ctx, TSSService_InitiateSign_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *tSSServiceClient) ExchangeMessage(ctx context.Context, in *MessageWrapper, opts ...grpc.CallOption) (*MessageWrapper, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MessageWrapper)
+	out := new(MessageResponse)
 	err := c.cc.Invoke(ctx, TSSService_ExchangeMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -84,10 +71,8 @@ func (c *tSSServiceClient) ExchangeMessage(ctx context.Context, in *MessageWrapp
 type TSSServiceServer interface {
 	// Gateway -> Party: 키 생성 요청
 	InitiateKeygen(context.Context, *KeygenRequest) (*KeygenResponse, error)
-	// Gateway -> Party: 서명 요청
-	InitiateSign(context.Context, *SignRequest) (*SignResponse, error)
 	// Party <-> Party: 메시지 교환
-	ExchangeMessage(context.Context, *MessageWrapper) (*MessageWrapper, error)
+	ExchangeMessage(context.Context, *MessageWrapper) (*MessageResponse, error)
 	mustEmbedUnimplementedTSSServiceServer()
 }
 
@@ -98,10 +83,7 @@ type UnimplementedTSSServiceServer struct {
 func (UnimplementedTSSServiceServer) InitiateKeygen(context.Context, *KeygenRequest) (*KeygenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InitiateKeygen not implemented")
 }
-func (UnimplementedTSSServiceServer) InitiateSign(context.Context, *SignRequest) (*SignResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InitiateSign not implemented")
-}
-func (UnimplementedTSSServiceServer) ExchangeMessage(context.Context, *MessageWrapper) (*MessageWrapper, error) {
+func (UnimplementedTSSServiceServer) ExchangeMessage(context.Context, *MessageWrapper) (*MessageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExchangeMessage not implemented")
 }
 func (UnimplementedTSSServiceServer) mustEmbedUnimplementedTSSServiceServer() {}
@@ -135,24 +117,6 @@ func _TSSService_InitiateKeygen_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TSSService_InitiateSign_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SignRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TSSServiceServer).InitiateSign(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: TSSService_InitiateSign_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TSSServiceServer).InitiateSign(ctx, req.(*SignRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _TSSService_ExchangeMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MessageWrapper)
 	if err := dec(in); err != nil {
@@ -181,10 +145,6 @@ var TSSService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InitiateKeygen",
 			Handler:    _TSSService_InitiateKeygen_Handler,
-		},
-		{
-			MethodName: "InitiateSign",
-			Handler:    _TSSService_InitiateSign_Handler,
 		},
 		{
 			MethodName: "ExchangeMessage",

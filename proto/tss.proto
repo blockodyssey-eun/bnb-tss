@@ -11,11 +11,8 @@ service TSSService {
   // Gateway -> Party: 키 생성 요청
   rpc InitiateKeygen(KeygenRequest) returns (KeygenResponse) {}
   
-  // Gateway -> Party: 서명 요청
-  rpc InitiateSign(SignRequest) returns (SignResponse) {}
-  
   // Party <-> Party: 메시지 교환
-  rpc ExchangeMessage(MessageWrapper) returns (MessageWrapper) {}
+  rpc ExchangeMessage(MessageWrapper) returns (MessageResponse) {}
 }
 
 // 키 생성 요청
@@ -33,20 +30,11 @@ message KeygenResponse {
   string error_message = 3;
 }
 
-// 서명 요청
-message SignRequest {
-  bytes message_to_sign = 1;
-  string session_id = 2;
-  string party_id = 3;
-  repeated PartyID parties = 4;
-}
-
-
-// 서명 응답
-message SignResponse {
-  bool success = 1;
-  SignatureData signature_data = 2;
-  string error_message = 3;
+// Party ID
+message PartyID {
+  string id = 1;
+  string moniker = 2;
+  bytes key = 3;
 }
 
 // 메시지 래퍼
@@ -58,20 +46,9 @@ message MessageWrapper {
   google.protobuf.Any content = 5;
 }
 
-// Party ID
-message PartyID {
-  string id = 1;
-  string moniker = 2;
-  bytes key = 3;
-}
-
-// 서명 데이터
-message SignatureData {
-  bytes signature = 1;
-  bytes signature_recovery = 2;
-  bytes r = 3;
-  bytes s = 4;
-  bytes m = 5;
+// 메시지 응답
+message MessageResponse {
+  bool success = 1;
 }
 
 // 키 생성 라운드 메시지들
@@ -97,59 +74,4 @@ message KGRound2Message2 {
 
 message KGRound3Message {
   repeated bytes paillier_proof = 1;
-}
-
-// 서명 라운드 메시지들
-message SignRound1Message1 {
-  bytes c = 1;
-  repeated bytes range_proof_alice = 2;
-}
-
-message SignRound1Message2 {
-  bytes commitment = 1;
-}
-
-message SignRound2Message {
-  bytes c1 = 1;
-  bytes c2 = 2;
-  repeated bytes proof_bob = 3;
-  repeated bytes proof_bob_wc = 4;
-}
-
-message SignRound3Message {
-  bytes theta = 1;
-}
-
-message SignRound4Message {
-  repeated bytes de_commitment = 1;
-  bytes proof_alpha_x = 2;
-  bytes proof_alpha_y = 3;
-  bytes proof_t = 4;
-}
-
-message SignRound5Message {
-  bytes commitment = 1;
-}
-
-message SignRound6Message {
-  repeated bytes de_commitment = 1;
-  bytes proof_alpha_x = 2;
-  bytes proof_alpha_y = 3;
-  bytes proof_t = 4;
-  bytes v_proof_alpha_x = 5;
-  bytes v_proof_alpha_y = 6;
-  bytes v_proof_t = 7;
-  bytes v_proof_u = 8;
-}
-
-message SignRound7Message {
-  bytes commitment = 1;
-}
-
-message SignRound8Message {
-  repeated bytes de_commitment = 1;
-}
-
-message SignRound9Message {
-  bytes s = 1;
 }
