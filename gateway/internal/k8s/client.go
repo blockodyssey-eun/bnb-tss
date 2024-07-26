@@ -6,11 +6,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gateway/internal/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,6 +50,9 @@ func ListExistingPods() ([]*corev1.Pod, error) {
 
 	cfg := config.Get()
 
+	// 디버깅: 네임스페이스와 라벨 출력
+	log.Printf("Searching for pods in namespace: %s with label: app=tss-party", cfg.Kubernetes.Namespace)
+
 	pods, err := clientset.CoreV1().Pods(cfg.Kubernetes.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=keygen",
 	})
@@ -55,9 +60,14 @@ func ListExistingPods() ([]*corev1.Pod, error) {
 		return nil, fmt.Errorf("failed to list existing pods: %v", err)
 	}
 
+	// 디버깅: 찾은 Pod 수 출력
+	log.Printf("Found %d pods", len(pods.Items))
+
 	var existingPods []*corev1.Pod
 	for _, pod := range pods.Items {
-		if CheckPodResourceAvailability(&pod) {
+		// 디버깅: 각 Pod의 이름과 상태 출력
+		log.Printf("Pod: %s, Status: %s", pod.Name, pod.Status.Phase)
+		if pod.Status.Phase == corev1.PodRunning {
 			existingPods = append(existingPods, &pod)
 		}
 	}
@@ -78,15 +88,21 @@ func CreatePods(m int) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("%s-%d", cfg.Kubernetes.PodPrefix, i),
 				Labels: map[string]string{
-					"app": "keygen",
+					"app": "tss-party",
 				},
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:    "keygen-container",
-						Image:   cfg.Kubernetes.ContainerImage,
-						Command: cfg.Kubernetes.ContainerCommand,
+						Name:            "tss-party-container",
+						Image:           cfg.Kubernetes.PodPrefix,
+						ImagePullPolicy: corev1.PullNever,
+
+						Ports: []corev1.ContainerPort{
+							{
+								ContainerPort: 50051,
+							},
+						},
 					},
 				},
 				RestartPolicy: corev1.RestartPolicyOnFailure,
@@ -97,7 +113,14 @@ func CreatePods(m int) error {
 		if err != nil {
 			return fmt.Errorf("failed to create pod %d: %v", i, err)
 		}
-		log.Printf("Created pod: %s in namespace %s", createdPod.Name, createdPod.Namespace)
+
+		// Pod이 Running 상태가 될 때까지 대기
+		err = waitForPodRunning(clientset, createdPod.Name, cfg.Kubernetes.Namespace)
+		if err != nil {
+			return fmt.Errorf("error waiting for pod to be running: %v", err)
+		}
+
+		log.Printf("Created pod: %s in namespace %s with IP: %s", createdPod.Name, createdPod.Namespace, createdPod.Status.PodIP)
 		podPool.AddPod(createdPod)
 	}
 
@@ -128,4 +151,14 @@ func CheckPodResourceAvailability(pod *corev1.Pod) bool {
 
 func GetPodPool() *PodPool {
 	return podPool
+}
+
+func waitForPodRunning(clientset *kubernetes.Clientset, podName, namespace string) error {
+	return wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
+		pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return pod.Status.Phase == corev1.PodRunning, nil
+	})
 }

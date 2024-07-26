@@ -8,15 +8,13 @@ import (
 )
 
 type Config struct {
-	Kubernetes struct {
-		Namespace       string `yaml:"namespace"`
-		PodPrefix       string `yaml:"podPrefix"`
-		PoImage         string `yaml:"podImage"`
-		InitialPodCount int    `yaml:"initialPodCount"`
-	} `yaml:"kubernetes"`
-	Server struct {
+	GRPC struct {
 		Port int `yaml:"port"`
-	} `yaml:"server"`
+	} `yaml:"grpc"`
+	Gateway struct {
+		Host string `yaml:"host"`
+		Port int    `yaml:"port"`
+	} `yaml:"gateway"`
 }
 
 var cfg Config

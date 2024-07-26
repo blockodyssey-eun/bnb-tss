@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package keygen;
+
+option go_package = "example.com/myapp/internal/proto";
+
+service KeygenService {
+    rpc GenerateKey (KeygenRequest) returns (KeygenResponse);
+    rpc KeygenFinished (stream KeygenFinishedRequest) returns (KeygenFinishedResponse);
+}
+
+message PodInfo {
+    string ip = 1;
+    int32 port = 2;
+}
+
+message KeygenRequest {
+    int32 n = 1;
+    int32 m = 2;
+    repeated PodInfo pods = 3;
+}
+
+message KeygenResponse {
+    string publickey = 1;
+}
+
+message KeygenFinishedRequest {
+    string publickey = 1;
+}
+
+message KeygenFinishedResponse {
+    string message = 1;
+}
