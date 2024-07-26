@@ -1,0 +1,12 @@
+kubernetes:
+  namespace: "default"
+  podPrefix: "keygen-pod"
+  containerImage: "ubuntu:latest"
+  containerCommand:
+    - "/bin/bash"
+    - "-c"
+    - "echo 'Keygen pod is running'; sleep 3600"
+  initialPodCount: 5  # 추가된 부분
+
+server:
+  port: 8080
